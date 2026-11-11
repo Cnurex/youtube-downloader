@@ -1,0 +1,44 @@
+name: Build EXE
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install pyinstaller pillow
+
+      - name: Make icon
+        shell: python
+        run: |
+          from PIL import Image, ImageDraw
+          S = 1024
+          top, bot = (255, 94, 120), (123, 97, 255)
+          grad = Image.new("RGBA", (S, S))
+          d = ImageDraw.Draw(grad)
+          for y in range(S):
+              t = y / S
+              d.line([(0, y), (S, y)], fill=tuple(int(top[i] * (1 - t) + bot[i] * t) for i in range(3)) + (255,))
+          mask = Image.new("L", (S, S), 0)
+          ImageDraw.Draw(mask).rounded_rectangle([40, 40, S - 40, S - 40], radius=230, fill=255)
+          im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+          im.paste(grad, (0, 0), mask)
+          ImageDraw.Draw(im).polygon([(400, 300), (400, 724), (740, 512)], fill="white")
+          im.save("icon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+
+      - name: Build
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name "YouTube Downloader" --icon icon.ico --add-data "icon.ico;." app.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YouTube-Downloader
+          path: dist/*.exe
